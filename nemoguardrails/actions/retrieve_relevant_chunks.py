@@ -70,7 +70,7 @@ async def retrieve_relevant_chunks(
 
     else:
         # No KB is set up, we keep the existing relevant_chunks if we have them.
-        context_updates["relevant_chunks"] = context.get("relevant_chunks", "") + "\n"
+        context_updates["relevant_chunks"] = context.get("relevant_chunks", "")
         context_updates["relevant_chunks_sep"] = context.get("relevant_chunks_sep", [])
         context_updates["retrieved_for"] = None
 

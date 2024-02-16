@@ -375,7 +375,7 @@ class LLMGenerationActions:
 
                 # We add these in reverse order so the most relevant is towards the end.
                 for result in reversed(results):
-                    examples += f"user \"{result.text}\"\n  {result.meta['intent']}\n\n"
+                    examples += f"input: user \"{result.text}\"\noutput: {result.meta['intent']}\n"
                     if result.meta["intent"] not in potential_user_intents:
                         potential_user_intents.append(result.meta["intent"])
 
@@ -694,7 +694,7 @@ class LLMGenerationActions:
             log.info("Found existing bot message: " + bot_utterance)
 
             # We also need to render
-            bot_utterance = self._render_string(bot_utterance, context)
+            bot_utterance = self._render_string(bot_utterance.replace('\\n', chr(10)), context)
 
             # We skip output rails for predefined messages.
             context_updates["skip_output_rails"] = True
@@ -874,6 +874,11 @@ class LLMGenerationActions:
             log.info(f"Generated bot message: {bot_utterance}")
 
         if bot_utterance:
+            bot_utterance = bot_utterance.replace('\\n', chr(10))
+
+            if bot_utterance.startswith("'") and bot_utterance.endswith("'"):
+                bot_utterance = bot_utterance[1:-1]
+
             # In streaming mode, we also push this.
             if streaming_handler:
                 await streaming_handler.push_chunk(bot_utterance)

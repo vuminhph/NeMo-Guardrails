@@ -81,13 +81,6 @@ define parallel extension flow generate bot message
   priority 100
 
   bot ...
-  execute retrieve_relevant_chunks
-
-  # If we have any retrieval rails, we run them.
-  if $config.rails.retrieval.flows
-    # If we have generation options, we make sure the retrieval rails are enabled.
-    if $generation_options is None or $generation_options.rails.retrieval:
-      do run retrieval rails
 
   # $output_rails_enabled = True
   execute generate_bot_message
