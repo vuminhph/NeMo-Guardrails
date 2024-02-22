@@ -26,7 +26,7 @@ from nemoguardrails import __version__
 from nemoguardrails.actions_server import actions_server
 from nemoguardrails.cli.chat import run_chat
 from nemoguardrails.eval.cli import evaluate
-from nemoguardrails.logging.verbose import set_verbose
+from nemoguardrails.logging.verbose import set_verbose, set_verbose_llm_calls
 from nemoguardrails.server import api
 
 app = typer.Typer()
@@ -128,7 +128,7 @@ def server(
             api.app.rails_config_path = local_configs_path
 
     if verbose:
-        logging.getLogger().setLevel(logging.INFO)
+        set_verbose_llm_calls(True)
 
     if disable_chat_ui:
         api.app.disable_chat_ui = True

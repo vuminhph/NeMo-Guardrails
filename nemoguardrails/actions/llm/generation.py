@@ -549,7 +549,21 @@ class LLMGenerationActions:
 
                 # We add these in reverse order so the most relevant is towards the end.
                 for result in reversed(results):
-                    examples += f"{result.text}\n\n"
+                    result = result.text
+                    if not result.startswith("user"):
+                        continue
+
+                    result_lines = result.split('\n')
+
+                    if not (result_lines[0].startswith("user") and result_lines[1].startswith("bot")):
+                        continue
+
+                    result_lines = result_lines[:2]
+                    result_lines[0] = "input: " + result_lines[0]
+                    result_lines[1] = "output: " + result_lines[1]
+                    result_text = '\n'.join(result_lines)
+
+                    examples += f"{result_text}\n\n"
 
             prompt = self.llm_task_manager.render_task_prompt(
                 task=Task.GENERATE_NEXT_STEPS,
@@ -706,7 +720,7 @@ class LLMGenerationActions:
             log.info("Found existing bot message: " + bot_utterance)
 
             # We also need to render
-            bot_utterance = self._render_string(bot_utterance.replace('\\n', chr(10)), context)
+            bot_utterance = self._render_string(bot_utterance.replace('\\n', chr(10)).replace('\\t', chr(9)), context)
 
             # We skip output rails for predefined messages.
             context_updates["skip_output_rails"] = True
@@ -886,7 +900,7 @@ class LLMGenerationActions:
             log.info(f"Generated bot message: {bot_utterance}")
 
         if bot_utterance:
-            bot_utterance = bot_utterance.replace('\\n', chr(10))
+            bot_utterance = bot_utterance.replace('\\n', chr(10)).replace('\\t', chr(9))
 
             if bot_utterance.startswith("'") and bot_utterance.endswith("'"):
                 bot_utterance = bot_utterance[1:-1]
