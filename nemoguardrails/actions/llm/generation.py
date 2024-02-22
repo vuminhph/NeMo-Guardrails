@@ -100,12 +100,13 @@ class LLMGenerationActions:
 
         # There are still some edge cases not covered by nest_asyncio.
         # Using a separate thread always for now.
+        loop = asyncio.get_event_loop()
         if True or check_sync_call_from_async_loop():
             t = threading.Thread(target=asyncio.run, args=(self.init(),))
             t.start()
             t.join()
         else:
-            asyncio.run(self.init())
+            loop.run_until_complete(self.init())
 
         self.llm_task_manager = llm_task_manager
 
@@ -573,7 +574,18 @@ class LLMGenerationActions:
                 result = get_first_nonempty_line(result)
 
                 if result and result.startswith("bot "):
-                    next_step = {"bot": result[4:]}
+                    bot_intent = result[4:]
+
+                    # Sometimes, the LLMs add also the message on the same line.
+                    # We do some cleaning up if that's the case.
+                    if '"' in bot_intent:
+                        bot_intent = bot_intent.split('"')[0].strip()
+
+                    # Also, sometimes, there's a comma and more content
+                    if "," in bot_intent:
+                        bot_intent = bot_intent.split(",")[0].strip()
+
+                    next_step = {"bot": bot_intent}
                 else:
                     next_step = {"bot": "general response"}
 

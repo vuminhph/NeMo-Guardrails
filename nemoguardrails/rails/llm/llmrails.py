@@ -36,6 +36,7 @@ from nemoguardrails.colang.v2_x.runtime.runtime import RuntimeV2_x
 from nemoguardrails.context import (
     explain_info_var,
     generation_options_var,
+    llm_stats_var,
     streaming_handler_var,
 )
 from nemoguardrails.embeddings.index import EmbeddingsIndex
@@ -43,7 +44,7 @@ from nemoguardrails.kb.kb import KnowledgeBase
 from nemoguardrails.llm.providers import get_llm_provider, get_llm_provider_names
 from nemoguardrails.logging.explain import ExplainInfo
 from nemoguardrails.logging.processing_log import compute_generation_log
-from nemoguardrails.logging.stats import llm_stats
+from nemoguardrails.logging.stats import LLMStats
 from nemoguardrails.logging.verbose import set_verbose
 from nemoguardrails.patch_asyncio import check_sync_call_from_async_loop
 from nemoguardrails.rails.llm.config import EmbeddingSearchProvider, RailsConfig
@@ -222,12 +223,13 @@ class LLMRails:
         # Next, we initialize the Knowledge Base
         # There are still some edge cases not covered by nest_asyncio.
         # Using a separate thread always for now.
+        loop = asyncio.get_event_loop()
         if True or check_sync_call_from_async_loop():
             t = threading.Thread(target=asyncio.run, args=(self._init_kb(),))
             t.start()
             t.join()
         else:
-            asyncio.run(self._init_kb())
+            loop.run_until_complete(self._init_kb())
 
         # We also register the kb as a parameter that can be passed to actions.
         self.runtime.register_action_param("kb", self.kb)
@@ -376,6 +378,13 @@ class LLMRails:
                     "embedding_engine", self.default_embedding_engine
                 ),
                 cache_config=esp_config.cache,
+                # We make sure we also pass additional relevant params.
+                **{
+                    k: v
+                    for k, v in esp_config.parameters.items()
+                    if k in ["use_batching", "max_batch_size", "matx_batch_hold"]
+                    and v is not None
+                },
             )
         else:
             if esp_config.name not in self.embedding_search_providers:
@@ -562,7 +571,10 @@ class LLMRails:
         #   This is important as without it, the LLM prediction is not as good.
 
         t0 = time.time()
-        llm_stats.reset()
+
+        # Initialize the LLM stats
+        llm_stats = LLMStats()
+        llm_stats_var.set(llm_stats)
 
         # The array of events corresponding to the provided sequence of messages.
         events = self._get_events_for_messages(messages)
@@ -609,8 +621,11 @@ class LLMRails:
         if self.verbose:
             log.info(f"Conversation history so far: \n{explain_info.colang_history}")
 
-        log.info("--- :: Total processing took %.2f seconds." % (time.time() - t0))
-        log.info("--- :: Stats: %s" % llm_stats)
+        total_time = time.time() - t0
+        log.info(
+            "--- :: Total processing took %.2f seconds. LLM Stats: %s"
+            % (total_time, llm_stats)
+        )
 
         # If there is a streaming handler, we make sure we close it now
         streaming_handler = streaming_handler_var.get()
@@ -724,7 +739,8 @@ class LLMRails:
                 "You should replace with `await generate_async(...)` or use `nest_asyncio.apply()`."
             )
 
-        return asyncio.run(
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(
             self.generate_async(
                 prompt=prompt,
                 messages=messages,
@@ -757,7 +773,10 @@ class LLMRails:
 
         """
         t0 = time.time()
-        llm_stats.reset()
+
+        # Initialize the LLM stats
+        llm_stats = LLMStats()
+        llm_stats_var.set(llm_stats)
 
         # Compute the new events.
         processing_log = []
@@ -788,7 +807,8 @@ class LLMRails:
                 "You should replace with `await generate_events_async(...)` or use `nest_asyncio.apply()`."
             )
 
-        return asyncio.run(self.generate_events_async(events=events))
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self.generate_events_async(events=events))
 
     async def process_events_async(
         self, events: List[dict], state: Optional[dict] = None
@@ -807,7 +827,8 @@ class LLMRails:
               state.
         """
         t0 = time.time()
-        llm_stats.reset()
+        llm_stats = LLMStats()
+        llm_stats_var.set(llm_stats)
 
         # Compute the new events.
         # We need to protect 'process_events' to be called only once at a time
@@ -835,7 +856,8 @@ class LLMRails:
                 "You should replace with `await generate_events_async(...)."
             )
 
-        return asyncio.run(self.process_events_async(events, state))
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self.process_events_async(events, state))
 
     def register_action(self, action: callable, name: Optional[str] = None):
         """Register a custom action for the rails configuration."""

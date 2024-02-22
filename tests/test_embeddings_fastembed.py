@@ -13,18 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import contextvars
+import pytest
 
-streaming_handler_var = contextvars.ContextVar("streaming_handler", default=None)
+from nemoguardrails.embeddings.embedding_providers.fastembed import (
+    FastEmbedEmbeddingModel,
+)
 
-# The object that holds additional explanation information.
-explain_info_var = contextvars.ContextVar("explain_info", default=None)
 
-# The current LLM call.
-llm_call_info_var = contextvars.ContextVar("llm_call_info", default=None)
+def test_sync_embeddings():
+    model = FastEmbedEmbeddingModel("all-MiniLM-L6-v2")
 
-# All the generation options applicable to the current context.
-generation_options_var = contextvars.ContextVar("generation_options", default=None)
+    result = model.encode(["test"])
 
-# The stats about the LLM calls.
-llm_stats_var = contextvars.ContextVar("llm_stats", default=None)
+    assert len(result[0]) == 384
+
+
+@pytest.mark.asyncio
+async def test_async_embeddings():
+    model = FastEmbedEmbeddingModel("all-MiniLM-L6-v2")
+
+    result = await model.encode_async(["test"])
+
+    assert len(result[0]) == 384
