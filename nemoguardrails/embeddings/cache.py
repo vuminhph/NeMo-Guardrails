@@ -20,7 +20,7 @@ import logging
 from abc import ABC, abstractmethod
 from functools import singledispatchmethod
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 from nemoguardrails.rails.llm.config import EmbeddingsCacheConfig
 
@@ -130,7 +130,7 @@ class FilesystemCacheStore(CacheStore):
         cache_dir (str, optional): The directory where the cache files will be stored. Defaults to "./cache".
 
     Example:
-        >>> cache_store = FilesystemCacheStore(cache_dir='./cache')
+        >>> cache_store = FilesystemCacheStore(cache_dir='.cache/embeddings')
         >>> cache_store.set('key', 'value')
         >>> print(cache_store.get('key'))
         value
@@ -139,7 +139,7 @@ class FilesystemCacheStore(CacheStore):
     name = "filesystem"
 
     def __init__(self, cache_dir: str = None):
-        self._cache_dir = Path(cache_dir or "./cache")
+        self._cache_dir = Path(cache_dir or ".cache/embeddings")
         self._cache_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_file_path(self, key):
@@ -207,7 +207,7 @@ class EmbeddingsCache:
         self._store_config = store_config or {}
 
     @classmethod
-    def from_dict(cls, d: dict[str, str]):
+    def from_dict(cls, d: Dict[str, str]):
         key_generator = KeyGenerator.from_name(d.get("key_generator"))()
         store_config = d.get("store_config")
         cache_store = CacheStore.from_name(d.get("store"))(**store_config)
